@@ -1,5 +1,7 @@
 # Dimension-reduction-analysis-and-clustering
 
+Link to RPubs: https://rpubs.com/Rahila/1011745 
+
 This repository contains R code and data for performing Principal Component Analysis (PCA) and clustering on a dataset that explores the nutritional content of various pizza brands. The dataset includes information on moisture, protein, fat, ash, sodium, carbohydrates, and calories per 100 grams for each pizza sample.
 
 Key Components:
