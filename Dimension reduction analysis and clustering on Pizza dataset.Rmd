@@ -1,0 +1,276 @@
+---
+title: "Dimension reduction analysis and clustering for Pizza dataset"
+author: "Rahila Mammadova Huseynova"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pizzadata_description <- data.frame(label_column=c('brand','id','mois','prot','fat','ash','sodium','carb','cal'),
+description_column=c('Pizza brand (class label)','Sample analysed','Amount of water per 100 grams in the sample',' Amount of protein per 100 grams in the sample',
+                                                         'Amount of fat per 100 grams in the sample','Amount of ash per 100 grams in the sample',
+                                                         'Amount of sodium per 100 grams in the sample','Amount of carbohydrates per 100 grams in the sample','Amount of calories per 100 grams in the sample
+
+'))
+
+
+install.packages("NbClust", repos = "http://cran.us.r-project.org")
+install.packages("corrplot", repos = "http://cran.us.r-project.org")
+install.packages("ggcorrplot", repos = "http://cran.us.r-project.org")
+install.packages("factoextra", repos = "http://cran.us.r-project.org")
+install.packages("gridExtra", repos = "http://cran.us.r-project.org")
+install.packages("tidyr", repos = "http://cran.us.r-project.org")
+install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+install.packages("factoextra", repos = "http://cran.us.r-project.org")
+install.packages("magrittr", repos = "http://cran.us.r-project.org")
+install.packages("dbscan", repos = "http://cran.us.r-project.org")
+
+```
+
+### Introduction 
+
+This analysis is divided into three distinct parts, each with a specific purpose. The first part involves using the K-means clustering algorithm to identify groups of similar data points within the dataset. This technique involves specifying the number of clusters (k) to be identified, and then assigning each data point to one of those clusters. This can be a useful technique for identifying patterns within the data and uncovering relationships between different variables.
+
+In the second part of the analysis, we will perform a PCA (Principal Component Analysis) analysis. PCA is a statistical technique that is used to identify the most important variables in a dataset and to reduce the number of dimensions in the data. By reducing the number of dimensions, we can simplify the data and make it easier to interpret. The outcome of this analysis is a new set of variables called principal components, which represent linear combinations of the original variables.
+
+In the final part of the analysis, we will use the modified dataset obtained from the PCA analysis and apply the DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm. This algorithm is a clustering technique that groups together data points that are close to each other in terms of their characteristics. 
+
+### Dataset Overview
+
+The pizza dataset can be found by clicking this link: [https://data.world/sdhilip/pizza-datasets]
+The dataset developed in this context is created specifically for dimension reduction. The dataset contains information about the ingredients used in different pizza brands
+
+
+```{r}
+library(knitr)
+kable(tail(pizzadata_description), caption = 'Dataset Description')
+```
+
+## Importing required libraries
+
+```{r}
+library(dbscan)
+library(magrittr)
+library(factoextra)
+library(NbClust)
+library(ggplot2)
+library(tidyr)
+library(gridExtra)
+library(grid)
+library(factoextra)
+library(corrplot)
+library(ggcorrplot)
+
+```
+
+Loading dataset
+
+```{r}
+pizza_data <- read.csv("C:/Users/rahil/Desktop/UL papers/PCA/pizza.csv")
+head(pizza_data)
+```
+
+```{r}
+str(pizza_data)
+```
+
+The dataset contains 300 observations and 9 variables. To perform Principal Component Analysis, the dataset must contain only numerical data. The dataset includes an "id" column, which is a unique identifier for each observation, and the "brand" column, which categorizes the pizzas into six different types.
+Since the "id" column does not contain any meaningful information about the dataset and is only used to differentiate between observations, it needs to be removed before performing PCA. Also, the "brand" column, being a categorical variable, does not add any numerical information to the analysis and does not contribute to the understanding of the variation in the data. Therefore, it is not relevant to the PCA analysis and needs to be removed as well.
+
+
+
+```{r}
+pizza_data <- pizza_data[,3:9]
+head(pizza_data)
+```
+
+## K-mean Clustering 
+
+K-means clustering is a common unsupervised learning algorithm used for clustering data into groups or clusters. In this case, it can be used to group the different pizza brands based on the ingredients used in each pizza.
+
+```{r}
+dim(pizza_data)
+```
+
+The dataset contains 300 observations (rows) and 7 variables (columns)
+
+Exploratory Data Analysis (EDA) of variables. There are histograms for each variable in separate panels, that has its own y-axis scale, which allows for better visualization of the distribution of each variable. Overall, the code below provides a quick overview of the distribution of each variable in the dataset.
+
+```{r}
+pizza_data %>% 
+  gather(key = value_groups, value = value) %>% 
+  ggplot(aes(x=value)) +
+  geom_histogram(color="pink") +
+  facet_wrap(.~value_groups, scales = "free")
+```
+
+## Data Preparation
+
+For further analysis, the data must be standardized to ensure that all variables are on the same scale and carry equal weight in the analysis. This involves transforming each variable to have a mean of zero and a standard deviation of one.
+Standardization also allows for the comparison of variables with different units of measurement and ranges of values, and does not change the underlying data distribution or relationships between variables. 
+
+```{r}
+norm_data <- scale(pizza_data)
+head(norm_data)
+```
+
+The subsequent steps after normalization is to compute the correlation matrix.The correlation matrix provides a useful summary of the relationships between the variables, and can be used to identify groups of variables that are highly correlated with each other.
+
+The correlation matrix will be used in PCA to calculate the eigenvectors and eigenvalues, which are the components that make up the principal components. The eigenvectors indicate the direction and strength of the correlation between the variables, while the eigenvalues indicate the proportion of variance explained by each principal component.
+
+```{r}
+corr <- cor(norm_data, method = "pearson")
+ggcorrplot(corr)
+```
+
+Variables that are highly correlated, either positively or negatively, are likely to be captured by the same principal components in PCA. In contrast, uncorrelated variables will be spread out across different principal components. This means that highly correlated variables are likely to contribute similarly to the variance in the dataset and will be grouped together in the analysis, while uncorrelated variables will not have a strong influence on each other and will be spread across the different principal components.
+
+## K-mean clustering
+
+```{r}
+pizza_dist <- dist(norm_data, method = "euclidean")
+```
+
+Code above computes the pairwise distance matrix between the rows of the pizza_data matrix using the Euclidean distance measure.
+
+```{r}
+fviz_dist(pizza_dist, show_labels = F)
+```
+
+The resulting plot can help us identify any obvious clusters or patterns in the data, which can inform the choice of the number of clusters to use in a k-means analysis. Specifically, we would look for  "elbow" in the plot where the rate of change in distance between clusters levels off, which can help us determine the optimal number of clusters to use.
+
+```{r}
+fviz_nbclust(norm_data, FUNcluster = kmeans, nstart=35, "wss") +
+  geom_vline(xintercept = 3, linetype=2)
+```
+
+Applying Elbow method technique, was determined the optimal number of clusters (k) in a k-means clustering algorithm, which is 3. 
+
+```{r}
+nb <- NbClust(norm_data, distance = "euclidean", min.nc = 2,
+              max.nc = 10, method = "kmeans")
+
+```
+
+
+The plot generates various clustering indices (such as the silhouette index, Dunn index, and gap statistic) for different numbers of clusters, allowing to visually identify the optimal number of clusters based on the chosen index.
+
+```{r}
+km_data <- kmeans(norm_data, centers = 3, nstart = 35)
+fviz_cluster(list(data=norm_data, clusters=km_data$cluster))
+```
+
+K-mean clustering was performed with 3 clusters on the pizza_data dataset. The centroid of each cluster is represented by a larger point with a white border.
+
+## Multidimensional scaling
+
+```{r}
+mds_pizza <- cmdscale(dist(pizza_data), k = 2)
+summary(mds_pizza)
+```
+
+Multidimensional Scaling (MDS) was performed on the pizza data set to create a two-dimensional representation of the data between each of the 300 pizza brands.
+
+```{r}
+mds_plot <- data.frame(mds_pizza)
+ggplot(data = mds_plot, aes(x = X1, y = X2) ) +
+  geom_point(color = "blue") +
+  labs(x = "Component 1", y = "Component 2", title = "MDS Plot of Pizza Ingredients") +
+  theme_bw()
+```
+
+The scatter plot shows the two dimensions of the MDS representation, with each point representing a pizza brand. This plot can be used to identify any potential clusters or patterns in the data that are not apparent from the raw data itself.
+
+## Computation of PCA 
+
+We can perform PCA using prcomp() function
+
+```{r}
+pca_data <- prcomp(norm_data)
+summary(pca_data)
+```
+
+Looking to cumulative proportion  of the total variance that is explained by each component, we can see that the first two components (PC1 and PC2) explain 92.32% of the total variance, while the first three components explain 98.24%. This gives us an idea of how many components we need to retain in order to explain a significant amount of the variation in the data.
+
+Therefore, we can say that PC1 is the most important principal component as it explains the most variation in the data. PC2 and PC3 are also important, as they explain a significant amount of variance. The other PCs (PC4 to PC7) capture very little variation in the data and can be ignored for further analysis.
+
+The majority of the variation within the dataset can be explained by the relationship between the variables represented in the first two principal components.(PC1 and PC2) Therefore, analyzing these two components can provide a meaningful and comprehensive understanding of the underlying patterns and structures in the data.
+
+To investigate the relationship between PC1 and PC2 with each column, we can use the loadings of each principal component. 
+
+```{r}
+pca_data$rotation[,1:2]
+```
+The results of the loading matrix show that the majority of the variation in the dataset is captured by the first principal component (PC1), which is primarily driven by the levels of fat, ash, sodium, and calories in the pizza. The second principal component (PC2) explains a smaller proportion of the variance, and is primarily driven by the levels of mois, prot, and carb in the pizza.
+
+These findings suggest that the pizza dataset can be summarized by two main factors: the level of calories, fat, ash, and sodium, and the level of mois, prot, and carb. These factors can be useful for understanding consumer preferences and developing new pizza products.
+
+```{r}
+
+eigenvalues <- summary(pca_data)$importance[2,]
+eigenvalues
+fviz_eig(pca_data, choice = "variance", addlabels = TRUE, barfill = "steelblue", linecolor = "red")
+```
+
+
+A created scree plot above shows the eigenvalues of each PC on the y-axis, and the corresponding PC number on the x-axis. The proportion of variance explained by each PC is also displayed as a percentage. The scree plot can help to identify the "elbow point", which is the point at which the slope of the curve levels off and the remaining PCs account for very little additional variance. This point is often used to determine the optimal number of PCs to retain in the analysis.
+
+The descending curve plot of eigenvalues shows the highest eigenvalue on the left and the lowest on the right. The first two components, PC1 and PC2, have the most significant information with the highest eigenvalues. These two principal components explain almost 92.3% of the total variation in the data, indicating their importance. Hence, we can conclude that PC1 and PC2 capture the essence of the dataset effectively, while the rest of the components are comparatively less important in explaining the variation in the data.
+
+```{r}
+fviz_cos2(pca_data, choice = "var", axes = 1:2)
+```
+
+The purpose of the visualization above, is to assess the degree to which each variable is reflected in a particular component. A low value indicates that the variable is not accurately represented by that component, whereas a high value indicates that the variable is well-represented on that component.
+
+```{r}
+pca1<- fviz_contrib(pca_data, choice = "var", axes = 1, top = 6, title = "PCA1")
+pca2<- fviz_contrib(pca_data, choice = "var", axes = 2, top = 6, title = "PCA2")
+grid.arrange(pca1, pca2,  ncol=2)
+```
+
+The plots above can help in understanding which variables are most strongly associated with the first two principal components of the PCA model and can provide insights into the underlying structure of the data. Five variables make a significant contribution to the first principal component, whereas the second principal component mainly comes from only two variables, accounting for over 70% of its variation.
+
+## Density-based spatial clustering of applications with noise
+
+The DBSCAN clustering is performed on the pizza dataset using the multidimensional scaling (MDS) representation of the data.
+
+```{r}
+
+dbscan_pizza <- mds_plot
+model <- dbscan(dbscan_pizza, eps = 2.8, MinPts = 5)
+fviz_cluster(model, dbscan_pizza, geom = "point", 
+             xlab = "First Dimension", ylab = "Second Dimension", 
+             ggtheme = theme_classic()) + 
+  ggtitle("DBSCAN Clustering of Pizza Ingredients")
+
+```
+
+By applying the DBSCAN algorithm, we were able to form six clusters, but some of the observations were marked as noise. Two parameters controlled the clustering results. The first parameter, eps, established a radius surrounding each point to form its neighborhood. If the number of points within this radius was greater or equal to MinPts (the second parameter), then that point was classified as a core point. Observations that were reachable through a path consisting of different core points were categorized as a single cluster.
+
+## Conclusion
+
+Two well-known techniques that can be employed to decrease the number of dimensions (features) in a dataset have been introduced. Both MDS and PCA were found to be effective in such scenarios. Afterwards, the DBSCAN clustering algorithm was utilized to demonstrate its value in grouping data based on their original traits, which were reduced by the aforementioned methods to only two features.
+
+
+### References 
+
+[https://f0nzie.github.io/machine_learning_compilation/detailed-study-of-principal-component-analysis.html#quality-of-representation]
+
+
+[https://towardsdatascience.com/pca-eigenvectors-and-eigenvalues-1f968bc6777a]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
